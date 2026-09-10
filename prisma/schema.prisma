@@ -1,0 +1,329 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+  MODERATOR
+}
+
+enum BookmarkCollection {
+  DREAM
+  SHORTLISTED
+  APPLIED
+  VISITED
+  COMPARE_LATER
+}
+
+model User {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  password       String
+  role           Role      @default(STUDENT)
+  avatar         String?
+  bio            String?
+  graduationYear Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  profile           Profile?
+  reviews           Review[]
+  bookmarks         Bookmark[]
+  questions         Question[]
+  answers           Answer[]
+  recentlyViewed    RecentlyViewed[]
+  predictorSessions PredictorSession[]
+  searchHistories   SearchHistory[]
+  notifications     Notification[]
+  comparisons       Comparison[]
+}
+
+model Profile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone             String?
+  tenthPercentage   Float?
+  twelfthPercentage Float?
+  category          String   @default("General")
+  gender            String   @default("All")
+  homeState         String?
+  budgetMax         Float?
+  preferredExams    String[] @default([])
+  preferredBranches String[] @default([])
+  preferredStates   String[] @default([])
+  badges            String[] @default(["Explorer"])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model State {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  code     String    @unique
+  cities   City[]
+  colleges College[]
+}
+
+model City {
+  id       String    @id @default(cuid())
+  name     String
+  stateId  String
+  state    State     @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  colleges College[]
+
+  @@unique([name, stateId])
+}
+
+model College {
+  id                String    @id @default(cuid())
+  slug              String    @unique
+  name              String
+  shortName         String
+  collegeType       String    // IIT, NIT, IIIT, BITS, Central, State, Private
+  ownership         String    // Public, Private
+  establishedYear   Int
+  campusSizeAcres   Float     @default(50)
+  hostelAvailable   Boolean   @default(true)
+  nirfRank          Int?
+  naacRating        String?   // A++, A+, A, B++
+  overallRating     Float     @default(4.0)
+  reviewCount       Int       @default(0)
+  feesMin           Float     // Annual min in INR
+  feesMax           Float     // Annual max in INR
+  avgPackageLpa     Float     // Average package in LPA
+  highestPackageLpa Float     // Highest package in LPA
+  placementRate     Float     @default(85) // in %
+  address           String
+  website           String?
+  logoUrl           String?
+  bannerUrl         String?
+  overview          String    @db.Text
+  virtualTourUrl    String?
+  isFeatured        Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  stateId           String
+  state             State     @relation(fields: [stateId], references: [id])
+  cityId            String
+  city              City      @relation(fields: [cityId], references: [id])
+
+  courses           Course[]
+  placements        Placement[]
+  reviews           Review[]
+  scholarships      Scholarship[]
+  recruiters        CollegeRecruiter[]
+  bookmarks         Bookmark[]
+  recentlyViewed    RecentlyViewed[]
+  questions         Question[]
+
+  @@index([nirfRank])
+  @@index([avgPackageLpa])
+  @@index([feesMin])
+  @@index([collegeType])
+  @@index([stateId])
+  @@index([cityId])
+}
+
+model Course {
+  id            String   @id @default(cuid())
+  collegeId     String
+  college       College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  name          String
+  degree        String   // B.Tech, M.Tech, MBA, MBBS, B.Sc
+  branch        String   // Computer Science, Electrical, Mechanical, etc.
+  durationYears Int      @default(4)
+  annualTuition Float    // in INR
+  seats         Int      @default(60)
+  cutoffGeneral Int?     // Cutoff closing rank
+  cutoffObc     Int?
+  cutoffSc      Int?
+  cutoffSt      Int?
+  entranceExam  String   // JEE Main, JEE Advanced, NEET, BITSAT, GATE, CAT, etc.
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([degree])
+  @@index([entranceExam])
+  @@index([cutoffGeneral])
+}
+
+model Placement {
+  id                  String   @id @default(cuid())
+  collegeId           String
+  college             College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  year                Int
+  avgPackage          Float    // in LPA
+  medianPackage       Float    // in LPA
+  highestPackage      Float    // in LPA
+  placementPercentage Float    // e.g. 92.5
+  totalOffers         Int      @default(500)
+  topSectors          String[] @default([])
+
+  @@unique([collegeId, year])
+}
+
+model Recruiter {
+  id       String             @id @default(cuid())
+  name     String             @unique
+  logo     String?
+  tier     String             @default("Tier 1")
+  colleges CollegeRecruiter[]
+}
+
+model CollegeRecruiter {
+  collegeId   String
+  recruiterId String
+  college     College   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  recruiter   Recruiter @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+
+  @@id([collegeId, recruiterId])
+}
+
+model Review {
+  id                   String   @id @default(cuid())
+  collegeId            String
+  college              College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating               Float    @default(4.0)
+  academicRating       Float    @default(4.0)
+  infrastructureRating Float    @default(4.0)
+  campusLifeRating     Float    @default(4.0)
+  placementRating      Float    @default(4.0)
+  title                String
+  pros                 String   @db.Text
+  cons                 String   @db.Text
+  verified             Boolean  @default(true)
+  helpfulCount         Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([collegeId])
+}
+
+model Scholarship {
+  id                  String   @id @default(cuid())
+  collegeId           String
+  college             College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  title               String
+  amount              String   // e.g. "100% Tuition Waiver", "₹50,000 / year"
+  eligibilityCriteria String
+  deadline            String?
+  createdAt           DateTime @default(now())
+
+  @@index([collegeId])
+}
+
+model Bookmark {
+  id         String             @id @default(cuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId  String
+  college    College            @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  collection BookmarkCollection @default(SHORTLISTED)
+  notes      String?
+  createdAt  DateTime           @default(now())
+
+  @@unique([userId, collegeId])
+  @@index([userId, collection])
+}
+
+model Comparison {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name       String   @default("My Comparison")
+  collegeIds String[]
+  createdAt  DateTime @default(now())
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId String?
+  college   College? @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+  title     String
+  content   String   @db.Text
+  tags      String[] @default([])
+  views     Int      @default(0)
+  upvotes   Int      @default(0)
+  answers   Answer[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([collegeId])
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  upvotes    Int      @default(0)
+  isAccepted Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([questionId])
+}
+
+model RecentlyViewed {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId String
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  viewedAt  DateTime @default(now())
+
+  @@unique([userId, collegeId])
+}
+
+model PredictorSession {
+  id              String   @id @default(cuid())
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  exam            String
+  rank            Int
+  category        String   @default("General")
+  homeState       String
+  gender          String   @default("All")
+  budget          Float?
+  preferredBranch String?
+  resultsSummary  Json
+  createdAt       DateTime @default(now())
+}
+
+model SearchHistory {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  query       String
+  filters     Json?
+  resultCount Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
