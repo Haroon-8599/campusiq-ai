@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   session: { strategy: "jwt" },
-  secret: process.env.NEXTAUTH_SECRET || "campusiq_super_secret_jwt_key_9918237198273",
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "campusiq_super_secret_jwt_key_9918237198273",
   providers: [
     Credentials({
       name: "credentials",
