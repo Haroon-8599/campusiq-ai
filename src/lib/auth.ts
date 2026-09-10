@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET || "campusiq_super_secret_jwt_key_9918237198273",
   providers: [
@@ -18,30 +19,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+          });
 
-        if (!user || !user.password) {
+          if (!user || !user.password) {
+            return null;
+          }
+
+          const isMatch = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
+
+          if (!isMatch) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            image: user.avatar,
+          };
+        } catch (error) {
+          console.error("Authentication authorization error:", error);
           return null;
         }
-
-        const isMatch = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!isMatch) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          image: user.avatar,
-        };
       },
     }),
   ],
